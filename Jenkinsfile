@@ -1,7 +1,6 @@
 pipeline {
     agent any
 
-    // GitHub push gelince tetiklensin (webhook ayarlıysa)
     triggers {
         githubPush()
     }
@@ -15,15 +14,19 @@ pipeline {
 
         stage('Build & Test') {
             steps {
-                // Linux agent'ta maven wrapper ile test
-                sh './mvnw -B clean test'
+                sh '''
+                    chmod +x mvnw
+                    ./mvnw -B clean test
+                '''
             }
         }
 
         stage('Package') {
             steps {
-                // Testleri tekrar koşmadan jar üret
-                sh './mvnw -B -DskipTests package'
+                sh '''
+                    chmod +x mvnw
+                    ./mvnw -B -DskipTests package
+                '''
             }
         }
 
@@ -50,7 +53,6 @@ pipeline {
         failure {
             echo "❌ Pipeline FAILED (test ya da build patladı)."
         }
-        // Workspace Cleanup plugin varsa kullan; yoksa bu bloğu silebirsin
         always {
             cleanWs()
         }
