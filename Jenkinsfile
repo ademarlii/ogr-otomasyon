@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    // GitHub'dan push gelince otomatik tetiklensin
+    // GitHub push gelince tetiklensin (webhook ayarlıysa)
     triggers {
         githubPush()
     }
@@ -9,36 +9,35 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Jenkins job'ındaki SCM ayarındaki repo/branch'i çeker
                 checkout scm
             }
         }
 
         stage('Build & Test') {
             steps {
-                // Windows'ta maven wrapper ile test çalıştır
-                bat 'mvnw.cmd -B clean test'
+                // Linux agent'ta maven wrapper ile test
+                sh './mvnw -B clean test'
             }
         }
 
         stage('Package') {
             steps {
                 // Testleri tekrar koşmadan jar üret
-                bat 'mvnw.cmd -B -DskipTests package'
+                sh './mvnw -B -DskipTests package'
             }
         }
 
         stage('Fake Deploy') {
             when {
-                // Sadece main branch'te fake deploy çalışsın
                 branch 'main'
             }
             steps {
-                // SAHTE DEPLOY: jar'ı workspace içindeki fake-deploy klasörüne kopyala
-                bat '''
-                if exist fake-deploy rmdir /S /Q fake-deploy
-                mkdir fake-deploy
-                copy /Y target\\*.jar fake-deploy\\
+                echo "SAHTE DEPLOY: target/*.jar dosyalarını fake-deploy klasörüne kopyalıyorum..."
+
+                sh '''
+                    rm -rf fake-deploy
+                    mkdir -p fake-deploy
+                    cp target/*.jar fake-deploy/
                 '''
             }
         }
@@ -51,7 +50,7 @@ pipeline {
         failure {
             echo "❌ Pipeline FAILED (test ya da build patladı)."
         }
-        // Workspace Cleanup plugin varsa kalsın, yoksa bu bloğu silebilirsin
+        // Workspace Cleanup plugin varsa kullan; yoksa bu bloğu silebirsin
         always {
             cleanWs()
         }
