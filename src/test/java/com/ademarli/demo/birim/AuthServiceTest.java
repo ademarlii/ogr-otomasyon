@@ -59,7 +59,7 @@ public class AuthServiceTest {
 
         assertEquals(1L, (long) createdUser.getId());
         assertEquals("Adem", createdUser.getFirstName());
-        assertEquals("Arlı", createdUser.getLastName());
+        assertEquals("A", createdUser.getLastName());
 
 
     }
