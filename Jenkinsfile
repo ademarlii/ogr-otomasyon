@@ -1,79 +1,59 @@
 pipeline {
     agent any
 
-    environment {
-        // Replace these with real values in Jenkins job configuration or leave empty
-        DEPLOY_HOST = ''               // e.g. 192.0.2.10 or host.example.com
-        DEPLOY_USER = ''               // e.g. deployuser
-        DEPLOY_PATH = ''               // e.g. /opt/apps/ogrenci
-        SSH_CREDENTIALS_ID = 'deploy-ssh-cred' // Jenkins credential id for "SSH Username with private key"
-        MAVEN_TOOL = 'M3'              // Jenkins Maven tool name
-        JDK_TOOL = 'jdk-21'            // Jenkins JDK tool name
-    }
-
-    tools {
-        maven "${MAVEN_TOOL}"
-        jdk "${JDK_TOOL}"
-    }
-
+    // GitHub'dan push gelince otomatik tetiklensin
     triggers {
-        // GitHub push webhook trigger (configure webhook in GitHub repo settings)
         githubPush()
     }
 
     stages {
         stage('Checkout') {
             steps {
+                // Jenkins job'ındaki SCM ayarındaki repo/branch'i çeker
                 checkout scm
             }
         }
 
         stage('Build & Test') {
             steps {
-                // Run tests
-                sh 'mvn -B clean test'
+                // Windows'ta maven wrapper ile test çalıştır
+                bat 'mvnw.cmd -B clean test'
             }
         }
 
         stage('Package') {
             steps {
-                sh 'mvn -B -DskipTests package'
+                // Testleri tekrar koşmadan jar üret
+                bat 'mvnw.cmd -B -DskipTests package'
             }
         }
 
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            }
-        }
-
-        stage('Deploy') {
+        stage('Fake Deploy') {
             when {
-                expression { return env.DEPLOY_HOST?.trim() }
+                // Sadece main branch'te fake deploy çalışsın
+                branch 'main'
             }
             steps {
-                script {
-                    // Use ssh-agent plugin with SSH Username with private key credential
-                    sshagent (credentials: [env.SSH_CREDENTIALS_ID]) {
-                        sh "scp -o StrictHostKeyChecking=no target/*.jar ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
-                        // Optionally restart remote service (uncomment and adjust service name)
-                        // sh "ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} 'sudo systemctl restart myapp.service || true'"
-                    }
-                }
+                // SAHTE DEPLOY: jar'ı workspace içindeki fake-deploy klasörüne kopyala
+                bat '''
+                if exist fake-deploy rmdir /S /Q fake-deploy
+                mkdir fake-deploy
+                copy /Y target\\*.jar fake-deploy\\
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "Pipeline completed successfully"
+            echo "✅ Pipeline başarıyla tamamlandı (testler geçti, fake deploy yapıldı)."
         }
         failure {
-            echo "Pipeline failed"
+            echo "❌ Pipeline FAILED (test ya da build patladı)."
         }
+        // Workspace Cleanup plugin varsa kalsın, yoksa bu bloğu silebilirsin
         always {
             cleanWs()
         }
     }
 }
-
